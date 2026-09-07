@@ -24,7 +24,7 @@
   },
   "peerDependencies": {
     "@sourceacademy/common-remote-execution": "workspace:*",
-    "@sourceacademy/conductor": ">=0.3.0"
+    "@sourceacademy/conductor": "^0.8.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.3",
@@ -33,7 +33,7 @@
     "@rollup/plugin-typescript": "^12.3.0",
     "@sourceacademy/common-remote-execution": "workspace:*",
     "@sourceacademy/common-test": "workspace:*",
-    "@sourceacademy/conductor": ">=0.3.0",
+    "@sourceacademy/conductor": "^0.8.0",
     "@vitest/coverage-istanbul": "^4.1.9",
     "esbuild": "^0.28.1",
     "rollup": "^4.62.2",

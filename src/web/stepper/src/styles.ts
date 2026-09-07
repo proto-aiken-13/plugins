@@ -35,8 +35,44 @@ const STEPPER_CSS = `
   word-break: break-word;
   font: 16px/normal 'Inconsolata', 'Consolas', monospace;
 }
+/* The output panel: identical formatting to the explanation box's <Pre> above, but coloured with the
+ * workspace REPL's printed-output orange ($code-color-log, #dd8c60) so program output reads the same
+ * as it does on the home/intro tab. */
+.sa-substituter pre.stepper-output {
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
+  padding: 0;
+  color: #dd8c60;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 16px/normal 'Inconsolata', 'Consolas', monospace;
+}
 .stepper-popover .stepper-display {
   font: 16px/normal 'Inconsolata', 'Consolas', monospace;
+}
+
+/* An opaque value's rendered thumbnail (see the image SyntaxTemplatePart) — shown inline at text
+ * height, DrRacket-style, rather than expanding the line. */
+.sa-substituter .stepper-opaque-thumbnail,
+.stepper-popover .stepper-opaque-thumbnail {
+  height: 1.4em;
+  width: auto;
+  vertical-align: middle;
+  border-radius: 3px;
+}
+
+/* The same thumbnail enlarged, shown in the hover popover so an opaque value (e.g. a rune) is
+ * actually legible while the inline copy stays at text height. A fixed width (not max-width) forces
+ * a low-resolution thumbnail to scale up rather than render at its small intrinsic size. */
+.sa-substituter .stepper-opaque-thumbnail-large,
+.stepper-popover .stepper-opaque-thumbnail-large {
+  display: block;
+  width: min(200px, 50vw);
+  height: auto;
+  margin-top: 6px;
+  border-radius: 3px;
+  image-rendering: auto;
 }
 
 .sa-substituter .stepper-mu-term,
@@ -112,12 +148,18 @@ const STEPPER_CSS = `
 
 const STYLE_ELEMENT_ID = "__sa_stepper_styles";
 
-/** Injects the stepper stylesheet into the document once. No-op outside the browser. */
+/** Injects (or refreshes) the stepper stylesheet in the document. No-op outside the browser. */
 export function injectStepperStyles(): void {
   if (typeof document === "undefined") return;
-  if (document.getElementById(STYLE_ELEMENT_ID)) return;
-  const style = document.createElement("style");
-  style.id = STYLE_ELEMENT_ID;
-  style.textContent = STEPPER_CSS;
-  document.head.appendChild(style);
+  let style = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+  if (style === null) {
+    style = document.createElement("style");
+    style.id = STYLE_ELEMENT_ID;
+    document.head.appendChild(style);
+  }
+  // Always (re)write the content instead of no-op'ing when the element already exists: a rebuilt bundle
+  // carrying updated CSS must replace any copy injected by an earlier load in the same document, or the
+  // stale styles silently mask the change (e.g. across a plugin remount in local dev — a new
+  // `.stepper-output` rule would never take effect and printed output would keep the default colour).
+  if (style.textContent !== STEPPER_CSS) style.textContent = STEPPER_CSS;
 }

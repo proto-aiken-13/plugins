@@ -75,6 +75,29 @@ function SubstCodeDisplay(props: { content: string }) {
   );
 }
 
+/** The program-output panel: same card/formatting as the explanation box above, but its text is the
+ * orange used for printed output in the main workspace's REPL (`.log-output`, #dd8c60). Shows the run's
+ * cumulative output up to the current step (see {@link SerializedStepperStep.output}).
+ *
+ * The colour is set inline, not via the injected `.stepper-output` rule, on purpose: when the Host runs
+ * inside the main frontend, that app's own (legacy substituter) stylesheet carries an id-scoped
+ * `#…workspace … .sa-substituter pre` colour rule whose specificity outranks the injected
+ * class selector, so a stylesheet colour would be silently overridden to the default (white). An inline
+ * style beats any external selector, guaranteeing the orange regardless of the embedding app's CSS. The
+ * `stepper-output` class still supplies the (non-colour) formatting that matches the explanation box. */
+function SubstOutputDisplay(props: { content: string }) {
+  if (!props.content) {
+    return null;
+  }
+  return (
+    <Card>
+      <Pre className="stepper-output" style={{ color: "#dd8c60" }}>
+        {props.content}
+      </Pre>
+    </Card>
+  );
+}
+
 type StepperViewProps = {
   content: SerializedStepperStep[];
   /** The active language's rendering rules; when absent, the default (Source) syntax is used. */
@@ -166,6 +189,14 @@ export default function StepperView(props: StepperViewProps) {
     [lastStepValue, props.content],
   );
 
+  const getOutput = useCallback(
+    (value: number): string => {
+      const contIndex = value <= lastStepValue ? value - 1 : 0;
+      return props.content[contIndex]?.output ?? "";
+    },
+    [lastStepValue, props.content],
+  );
+
   return (
     <div
       className={classNames("sa-substituter", Classes.DARK)}
@@ -198,6 +229,9 @@ export default function StepperView(props: StepperViewProps) {
         <SubstDefaultText />
       )}
       {hasRunCode ? <SubstCodeDisplay content={getExplanation(stepValue)} /> : null}
+      {/* Output panel, directly below the explanation box; always shown once code has run (empty until
+          the program prints). Shows cumulative output up to the current step. */}
+      {hasRunCode ? <SubstOutputDisplay content={getOutput(stepValue)} /> : null}
     </div>
   );
 }
@@ -341,6 +375,40 @@ function ProfileFunctionDefinitionPopover({
             })}
           </code>
         </pre>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The popover body for a {@link HoverTextRule}: a single already-formatted line the language
+ * computed ahead of time (e.g. `"built-in function print"`), unlike
+ * {@link ProfileFunctionDefinitionPopover}'s expanded function body — there is no body to render here,
+ * just the text, inside the same chrome the function-definition popover uses.
+ */
+function ProfileHoverTextPopover({ text }: { text: string }) {
+  return (
+    <div className={classNames("stepper-popover", Classes.DARK)}>
+      <div className="stepper-display">
+        <Icon icon="info-sign" />
+        <span>{` ${text}`}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Popover body for an `image` part: the inline opaque-value thumbnail, enlarged to be legible. */
+function EnlargedThumbnailPopover({ src, alt }: { src: string; alt?: string }) {
+  return (
+    <div className={classNames("stepper-popover", Classes.DARK)}>
+      <div className="stepper-display">
+        {alt ? (
+          <>
+            <Icon icon="media" />
+            <span>{` ${alt}`}</span>
+          </>
+        ) : null}
+        <img className="stepper-opaque-thumbnail-large" src={src} alt={alt ?? ""} />
       </div>
     </div>
   );
@@ -800,6 +868,34 @@ function renderNode(
           <span key={key}>{part.parts.map((p, i) => renderPart(p, i))}</span>
         ) : null;
       }
+      if ("unless" in part) {
+        return node[part.unless] ? null : (
+          <span key={key}>{part.parts.map((p, i) => renderPart(p, i))}</span>
+        );
+      }
+      if ("image" in part) {
+        const src = readNodeProp(node, part.image);
+        if (typeof src !== "string" || !src.startsWith("data:")) return null;
+        const alt = part.altProp === undefined ? undefined : readNodeProp(node, part.altProp);
+        const altText = alt == null ? "" : String(alt);
+        return (
+          <Popover
+            key={key}
+            interactionKind="hover"
+            placement="bottom"
+            usePortal={popoverDepth === 0}
+            lazy
+            popoverClassName="stepper-popover"
+            content={<EnlargedThumbnailPopover src={src} alt={altText} />}
+          >
+            <img
+              className={classNames("stepper-opaque-thumbnail", cls(part.cls))}
+              src={src}
+              alt={altText}
+            />
+          </Popover>
+        );
+      }
       return null;
     };
     return <span>{template.map((part, i) => renderPart(part, i))}</span>;
@@ -887,6 +983,28 @@ function renderNode(
       // A profile is authoritative: never fall back to JS syntax for an unmapped node type.
       const template = profile.templates[currentNode.type];
       result = template ? renderTemplate(currentNode, template) : `<${currentNode.type}>`;
+    }
+
+    // A fixed-text hover popover (e.g. a builtin's `<built-in function print>`) is independent of the
+    // function-value mu-term collapse above and applies regardless of which branch produced `result` —
+    // a node type can be listed in both `functionValues` and `hoverText` and get both behaviours, not
+    // just whichever branch happened to run first. See SyntaxProfile.hoverText.
+    const hoverRule = profile.hoverText?.find(rule => rule.type === currentNode.type);
+    const hoverText = hoverRule ? readNodeProp(currentNode, hoverRule.textProp) : undefined;
+    if (typeof hoverText === "string" && hoverText !== "") {
+      const content = result;
+      result = (
+        <Popover
+          interactionKind="hover"
+          placement="bottom"
+          usePortal={popoverDepth === 0}
+          lazy
+          popoverClassName="stepper-popover"
+          content={<ProfileHoverTextPopover text={hoverText} />}
+        >
+          {content}
+        </Popover>
+      );
     }
   } else {
     const renderer = (

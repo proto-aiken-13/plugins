@@ -10,13 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Enable corepack
         run: corepack enable
       - name: Setup node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: yarn
       - name: Install dependencies
         run: yarn install --frozen-lockfile
@@ -33,9 +33,26 @@ jobs:
         uses: changesets/action@v1
         with:
           publish: yarn changeset publish
-          version: yarn changeset version
+          # changeset version only rewrites package.json/CHANGELOG.md — it never re-runs
+          # install, so a peerDependency range bump (e.g. common-cse-machine >=0.1.0 -> >=0.2.0
+          # in a dependent's package.json) can leave yarn.lock stale. That stale lockfile then
+          # fails CI's immutable install on the resulting "Version Packages" PR. Re-running
+          # install here keeps the lockfile in sync in the same commit; it's a no-op when
+          # nothing changed.
+          #
+          # changesets/action runs this command directly (not through a shell), splitting it on
+          # spaces and exec'ing the first token with the rest as literal argv — so a bare
+          # `yarn changeset version && yarn install` sends `&&`, `yarn`, `install` to the
+          # changeset CLI itself as extra positional args, which it rejects ("Too many arguments
+          # passed to changesets"). Wrapping in `bash -c "..."` makes bash the exec'd command and
+          # hands it the whole compound command as one argument, so `&&` is interpreted correctly.
+          version: bash -c "yarn changeset version && yarn install"
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # changesets/action's own README recommends this for the yarn-install-after-version
+          # pattern: without it, this install could itself run in an immutable/frozen mode and
+          # fail instead of regenerating the lockfile.
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
       - name: Upload artifacts
         id: deployment
         uses: actions/upload-pages-artifact@v5
