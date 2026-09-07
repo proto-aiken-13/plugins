@@ -12,7 +12,7 @@ export class RemoteExecutionPlugin implements IPlugin {
   static readonly channelAttach = [CHANNEL_ID];
   private readonly __channel: IChannel<ConnectionStatusMessage>;
 
-  constructor(_conduit: IConduit, [channel]: IChannel<any>[]) {
+  constructor(_conduit: IConduit, [channel]: IChannel<ConnectionStatusMessage>[]) {
     if (!channel) {
       throw new Error("Remote execution channel is required but was not provided.");
     }

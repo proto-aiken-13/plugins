@@ -23,6 +23,7 @@
     "prepack": "yarn build"
   },
   "peerDependencies": {
+    "@sourceacademy/common-remote-execution": "workspace:*",
     "@sourceacademy/conductor": ">=0.3.0"
   },
   "devDependencies": {
@@ -30,6 +31,7 @@
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
+    "@sourceacademy/common-remote-execution": "workspace:*",
     "@sourceacademy/common-test": "workspace:*",
     "@sourceacademy/conductor": ">=0.3.0",
     "@vitest/coverage-istanbul": "^4.1.9",
